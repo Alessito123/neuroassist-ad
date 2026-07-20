@@ -5,7 +5,7 @@ from io import BytesIO
 
 from models import evaluate_models
 from preprocessing import prepare_data
-from report_generator import generate_report
+from report_generator import generate_report, pdf_data_uri
 from visualization import confusion_matrix_figure, model_comparison_figure
 
 
@@ -50,3 +50,13 @@ def test_pdf_escapes_dynamic_patient_text():
     assert pdf.startswith(b"%PDF")
     extracted = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
     assert "PAC-01 <control> & revisión" in extracted
+
+
+def test_pdf_data_uri_is_self_contained_and_validates_input():
+    frame = pd.DataFrame({"Age": [70, 75], "Diagnosis": [0, 1]})
+    pdf = generate_report(frame, "Diagnosis")
+    uri = pdf_data_uri(pdf)
+    assert uri.startswith("data:application/pdf;base64,JVBER")
+
+    with np.testing.assert_raises(ValueError):
+        pdf_data_uri(b"not-a-pdf")

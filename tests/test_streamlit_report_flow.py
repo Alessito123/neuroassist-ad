@@ -26,3 +26,6 @@ def test_report_flow_keeps_navigation_and_builds_pdf():
     assert not app.exception
     assert app.session_state["selected_module"] == "8. Reportes PDF"
     assert bytes(app.session_state["generated_pdf"]).startswith(b"%PDF")
+    assert any(
+        "data:application/pdf;base64," in markdown.value for markdown in app.markdown
+    )

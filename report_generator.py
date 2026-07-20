@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import base64
 from datetime import datetime
 from html import escape
 from typing import Any, Iterable
@@ -54,6 +55,14 @@ REPORT_PALE = colors.HexColor("#EFF7F8")
 def _safe_text(value: Any) -> str:
     """Escapa texto dinámico antes de enviarlo al parser XML de ReportLab."""
     return escape(str(value), quote=True)
+
+
+def pdf_data_uri(pdf: bytes) -> str:
+    """Convierte un PDF válido en una URI autocontenida para descargas serverless."""
+    if not isinstance(pdf, bytes) or not pdf.startswith(b"%PDF"):
+        raise ValueError("Se requiere un documento PDF válido en bytes.")
+    encoded = base64.b64encode(pdf).decode("ascii")
+    return f"data:application/pdf;base64,{encoded}"
 
 
 def _dataframe_table(frame: pd.DataFrame, columns: list[str] | None = None) -> Table:

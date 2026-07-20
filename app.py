@@ -29,7 +29,7 @@ from preprocessing import (
     prepare_data,
     read_dataset,
 )
-from report_generator import generate_report
+from report_generator import generate_report, pdf_data_uri
 from visualization import (
     confusion_matrix_figure,
     descriptive_by_group,
@@ -168,6 +168,14 @@ APP_STYLES = """
         border: 1px solid #b9e5d9; background: #effaf6; border-radius: 1rem;
         padding: 1rem 1.1rem; color: #145d50; margin: 0.7rem 0 1rem;
     }
+    .na-download-link {
+        display: flex; align-items: center; justify-content: center; gap: 0.55rem;
+        width: 100%; min-height: 2.8rem; border-radius: 0.78rem;
+        background: linear-gradient(110deg, var(--na-blue), var(--na-teal));
+        color: white !important; font-weight: 750; text-decoration: none !important;
+        box-shadow: 0 8px 22px rgba(15, 126, 133, 0.2); transition: 150ms ease;
+    }
+    .na-download-link:hover { filter: brightness(1.06); transform: translateY(-1px); }
 
     @media (max-width: 760px) {
         .block-container { padding-top: 1.25rem; }
@@ -808,21 +816,17 @@ def page_reports() -> None:
     if pdf_data:
         size_kb = len(pdf_data) / 1024
         generated_at = st.session_state.get("generated_pdf_at") or "esta sesión"
+        file_name = f"reporte_neuroassist_ad_{datetime.now():%Y%m%d}.pdf"
+        download_href = pdf_data_uri(pdf_data)
         st.markdown(
             f"""<div class="na-report-ready"><strong>✓ Reporte preparado</strong><br>
             {size_kb:,.0f} KB · generado {generated_at}. La descarga no reiniciará su sesión.</div>""",
             unsafe_allow_html=True,
         )
-        st.download_button(
-            "Descargar reporte NeuroAssist AD",
-            data=pdf_data,
-            file_name=f"reporte_neuroassist_ad_{datetime.now():%Y%m%d}.pdf",
-            mime="application/pdf",
-            key="download_report_pdf",
-            on_click="ignore",
-            type="primary",
-            icon=":material/download:",
-            use_container_width=True,
+        st.markdown(
+            f"""<a class="na-download-link" href="{download_href}" download="{file_name}"
+            aria-label="Descargar reporte NeuroAssist AD">↓ Descargar reporte NeuroAssist AD</a>""",
+            unsafe_allow_html=True,
         )
 
 

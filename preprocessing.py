@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+import unicodedata
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,26 @@ from config import RANDOM_SEED, SETTINGS, TARGET_CANDIDATES
 
 LOGGER = logging.getLogger(__name__)
 IDENTIFIER_HINTS = ("id", "patientid", "patient_id", "doctorincharge", "nombre", "name")
+POSITIVE_LABEL_HINTS = (
+    "alzheimer",
+    "dement",
+    "positive",
+    "positivo",
+    "disease",
+    "enfermo",
+    "case",
+    "yes",
+    "si",
+)
+NEGATIVE_LABEL_HINTS = (
+    "control",
+    "healthy",
+    "normal",
+    "negative",
+    "negativo",
+    "sano",
+    "no",
+)
 
 
 @dataclass
@@ -33,6 +54,7 @@ class DataBundle:
     numerical_columns: list[str]
     categorical_columns: list[str]
     dropped_columns: list[str]
+    class_labels: dict[int, Any]
 
 
 def _name_of(source: Any) -> str:
@@ -103,14 +125,45 @@ def infer_target(frame: pd.DataFrame) -> str:
     raise ValueError("No se detectó la variable objetivo; selecciónela manualmente.")
 
 
+def _normalized_label(value: Any) -> str:
+    text = unicodedata.normalize("NFKD", str(value).strip().lower())
+    return "".join(character for character in text if not unicodedata.combining(character))
+
+
+def _ordered_binary_classes(values: list[Any]) -> list[Any]:
+    """Ordena clase negativa/positiva con convenciones clínicas comunes."""
+    if all(isinstance(value, (int, float, np.integer, np.floating, bool)) for value in values):
+        return sorted(values)
+    negative = [
+        value
+        for value in values
+        if any(hint in _normalized_label(value) for hint in NEGATIVE_LABEL_HINTS)
+    ]
+    positive = [
+        value
+        for value in values
+        if value not in negative
+        and any(hint in _normalized_label(value) for hint in POSITIVE_LABEL_HINTS)
+    ]
+    if len(positive) == 1:
+        return [value for value in values if value != positive[0]] + positive
+    if len(negative) == 1:
+        return negative + [value for value in values if value != negative[0]]
+    return sorted(values, key=str)
+
+
 def prepare_data(frame: pd.DataFrame, target: str) -> DataBundle:
     if target not in frame.columns:
         raise KeyError(f"La columna objetivo '{target}' no existe.")
     working = frame.copy()
     working = working.dropna(subset=[target])
-    y = working.pop(target)
-    if y.nunique() < 2:
-        raise ValueError("La variable objetivo necesita al menos dos clases.")
+    original_y = working.pop(target)
+    classes = _ordered_binary_classes(original_y.unique().tolist())
+    if len(classes) != 2:
+        raise ValueError("La variable objetivo debe contener exactamente dos clases.")
+    label_to_code = {label: index for index, label in enumerate(classes)}
+    y = original_y.map(label_to_code).astype(int)
+    class_labels = {index: label for label, index in label_to_code.items()}
 
     dropped = [
         column
@@ -123,7 +176,7 @@ def prepare_data(frame: pd.DataFrame, target: str) -> DataBundle:
         raise ValueError("No quedan predictores después de retirar identificadores.")
     numerical = X.select_dtypes(include=np.number).columns.tolist()
     categorical = [column for column in X.columns if column not in numerical]
-    return DataBundle(X, y, target, numerical, categorical, dropped)
+    return DataBundle(X, y, target, numerical, categorical, dropped, class_labels)
 
 
 def build_preprocessor(
@@ -181,4 +234,3 @@ def dataset_summary(frame: pd.DataFrame, target: str | None = None) -> dict[str,
             str(key): int(value) for key, value in frame[target].value_counts().items()
         }
     return result
-

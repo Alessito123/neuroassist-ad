@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np
 import pandas as pd
+import plotly.express as px
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.inspection import permutation_importance
@@ -20,6 +21,97 @@ from models import EvaluationSuite
 from preprocessing import DataBundle, build_preprocessor
 
 sns.set_theme(style="whitegrid", palette="colorblind")
+
+
+def interactive_target_distribution(frame: pd.DataFrame, target: str):
+    counts = (
+        frame[target]
+        .astype(str)
+        .value_counts(dropna=False)
+        .rename_axis("Grupo")
+        .reset_index(name="Pacientes")
+    )
+    figure = px.bar(
+        counts,
+        x="Grupo",
+        y="Pacientes",
+        color="Grupo",
+        title="Distribución de la variable objetivo",
+        text_auto=True,
+    )
+    figure.update_layout(showlegend=False)
+    return figure
+
+
+def interactive_numeric_distribution(frame: pd.DataFrame, column: str, target: str):
+    plot_data = frame[[column, target]].copy()
+    plot_data["Grupo"] = plot_data[target].astype(str)
+    return px.histogram(
+        plot_data,
+        x=column,
+        color="Grupo",
+        marginal="box",
+        barmode="overlay",
+        opacity=0.65,
+        histnorm="probability density",
+        title=f"Distribución interactiva de {column} por grupo",
+    )
+
+
+def interactive_correlation_heatmap(frame: pd.DataFrame, max_columns: int = 20):
+    numeric = frame.select_dtypes(include=np.number)
+    if numeric.shape[1] > max_columns:
+        variances = numeric.var().sort_values(ascending=False)
+        numeric = numeric[variances.head(max_columns).index]
+    correlation = numeric.corr()
+    figure = px.imshow(
+        correlation,
+        color_continuous_scale="RdBu_r",
+        zmin=-1,
+        zmax=1,
+        aspect="auto",
+        title="Mapa interactivo de correlaciones",
+    )
+    figure.update_layout(height=650)
+    return figure
+
+
+def interactive_boxplot(frame: pd.DataFrame, column: str, target: str):
+    plot_data = frame[[column, target]].copy()
+    plot_data["Grupo"] = plot_data[target].astype(str)
+    return px.box(
+        plot_data,
+        x="Grupo",
+        y=column,
+        color="Grupo",
+        points="outliers",
+        title=f"{column}: comparación interactiva entre grupos",
+    )
+
+
+def interactive_pca(bundle: DataBundle):
+    transformed = build_preprocessor(bundle).fit_transform(bundle.X)
+    pca = PCA(n_components=2, random_state=RANDOM_SEED)
+    coordinates = pca.fit_transform(transformed)
+    plot_data = pd.DataFrame(
+        {
+            "PC1": coordinates[:, 0],
+            "PC2": coordinates[:, 1],
+            "Grupo": bundle.y.map(bundle.class_labels).astype(str).to_numpy(),
+        }
+    )
+    figure = px.scatter(
+        plot_data,
+        x="PC1",
+        y="PC2",
+        color="Grupo",
+        opacity=0.72,
+        title=(
+            "PCA interactivo — varianza explicada "
+            f"{pca.explained_variance_ratio_[0]:.1%} + {pca.explained_variance_ratio_[1]:.1%}"
+        ),
+    )
+    return figure
 
 
 def target_distribution_figure(frame: pd.DataFrame, target: str):
@@ -75,7 +167,11 @@ def pca_figure(bundle: DataBundle):
     transformed = build_preprocessor(bundle).fit_transform(bundle.X)
     coordinates = PCA(n_components=2, random_state=RANDOM_SEED).fit_transform(transformed)
     plot_data = pd.DataFrame(
-        {"PC1": coordinates[:, 0], "PC2": coordinates[:, 1], "Grupo": bundle.y.astype(str)}
+        {
+            "PC1": coordinates[:, 0],
+            "PC2": coordinates[:, 1],
+            "Grupo": bundle.y.map(bundle.class_labels).astype(str),
+        }
     )
     fig, ax = plt.subplots(figsize=(8, 5.5))
     sns.scatterplot(

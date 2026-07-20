@@ -30,14 +30,15 @@ from preprocessing import (
 )
 from report_generator import generate_report
 from visualization import (
-    boxplot_figure,
     confusion_matrix_figure,
-    correlation_heatmap,
     descriptive_by_group,
     feature_importance_figure,
+    interactive_boxplot,
+    interactive_correlation_heatmap,
+    interactive_numeric_distribution,
+    interactive_pca,
+    interactive_target_distribution,
     model_comparison_figure,
-    numeric_distribution_figure,
-    pca_figure,
     roc_pr_figure,
     target_distribution_figure,
 )
@@ -267,6 +268,7 @@ def page_data_management() -> None:
                         "numericas": bundle.numerical_columns,
                         "categoricas": bundle.categorical_columns,
                         "eliminadas": bundle.dropped_columns,
+                        "mapeo_clases": bundle.class_labels,
                         "imputacion": "mediana/moda",
                         "escalado": "StandardScaler",
                     },
@@ -295,12 +297,19 @@ def page_eda() -> None:
         return
     selected = st.selectbox("Variable numérica", numeric)
     first, second = st.columns(2)
-    first.pyplot(target_distribution_figure(frame, target), clear_figure=True)
-    second.pyplot(numeric_distribution_figure(frame, selected, target), clear_figure=True)
+    first.plotly_chart(
+        interactive_target_distribution(frame, target), use_container_width=True
+    )
+    second.plotly_chart(
+        interactive_numeric_distribution(frame, selected, target),
+        use_container_width=True,
+    )
     third, fourth = st.columns(2)
-    third.pyplot(boxplot_figure(frame, selected, target), clear_figure=True)
-    fourth.pyplot(pca_figure(bundle), clear_figure=True)
-    st.pyplot(correlation_heatmap(frame), clear_figure=True)
+    third.plotly_chart(
+        interactive_boxplot(frame, selected, target), use_container_width=True
+    )
+    fourth.plotly_chart(interactive_pca(bundle), use_container_width=True)
+    st.plotly_chart(interactive_correlation_heatmap(frame), use_container_width=True)
     with st.expander("Estadísticas descriptivas comparativas"):
         st.dataframe(descriptive_by_group(frame, target), use_container_width=True)
 
@@ -518,8 +527,10 @@ def page_diagnosis() -> None:
 
     if patient_frame is not None:
         try:
-            predicted, probability = predict_patient(model, patient_frame)
+            predicted_encoded, probability = predict_patient(model, patient_frame)
             positive = suite.models[best].positive_label
+            predicted = bundle.class_labels.get(int(predicted_encoded), predicted_encoded)
+            positive_display = bundle.class_labels.get(int(positive), positive)
             positive_probability = float(
                 model.predict_proba(patient_frame)[0][list(model.classes_).index(positive)]
             )
@@ -532,10 +543,16 @@ def page_diagnosis() -> None:
                 "features": patient_frame.iloc[0].to_dict(),
             }
             st.session_state.patient_result = result
-            if predicted == positive:
-                st.error(f"Resultado del modelo: clase positiva — confianza {probability:.1%}")
+            if predicted_encoded == positive:
+                st.error(
+                    f"Resultado del modelo: {positive_display} (clase positiva) — "
+                    f"confianza {probability:.1%}"
+                )
             else:
-                st.success(f"Resultado del modelo: clase negativa — confianza {probability:.1%}")
+                st.success(
+                    f"Resultado del modelo: {predicted} (clase negativa) — "
+                    f"confianza {probability:.1%}"
+                )
             st.metric("Probabilidad estimada de clase positiva", f"{positive_probability:.1%}")
             st.warning(
                 "Esto no es un diagnóstico. Un profesional debe integrar evaluación cognitiva, "

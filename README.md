@@ -47,32 +47,28 @@ docker compose up --build
 
 Las credenciales no se imprimen ni se guardan en Git. Use `.env.example` como referencia.
 
-## Despliegue y Vercel
+## Despliegue en Vercel
 
-Streamlit necesita un proceso Python persistente y su propio protocolo de sesión sobre WebSocket.
-Vercel documenta funciones Python ASGI/WSGI y, desde junio de 2026, WebSockets en beta mediante el
-runtime Node.js; no documenta Streamlit como entrypoint Python soportado. Por eso este repositorio
-separa:
+Desde junio de 2026, Vercel Functions admite servidores HTTP desde imágenes OCI y conexiones
+WebSocket. `Dockerfile.vercel` ejecuta el Streamlit real escuchando en `$PORT`, y `vercel.json` lo
+declara como un Service con runtime de contenedor.
 
-1. **Aplicación real:** contenedor `Dockerfile` ejecutado en un host persistente compatible con
-   Streamlit (o Streamlit Community Cloud).
-2. **Gateway Vercel:** `api/index.js` redirige a la aplicación real mediante `STREAMLIT_APP_URL` y
-   expone `/health`.
-
-Despliegue el gateway:
+Despliegue la aplicación:
 
 ```powershell
 npx vercel
-npx vercel env add STREAMLIT_APP_URL production
+npx vercel env add DATABASE_URL production
 npx vercel --prod
 ```
 
-Esta separación evita afirmar que un landing estático ejecuta el motor ML. Si Vercel incorpora un
-runtime Python persistente compatible con Streamlit, puede sustituirse el gateway sin cambiar los
-módulos de dominio.
+Los contenedores de Vercel son funciones sin estado que escalan a cero y cada WebSocket está sujeto
+a la duración máxima de la función. PostgreSQL conserva datasets, modelos y resultados; el navegador
+debe tolerar reconexiones y una sesión de entrenamiento en memoria puede reiniciarse. Esta capacidad
+está en beta y no tiene el mismo perfil que un dispositivo médico productivo.
 
-Referencias: [runtime Python de Vercel](https://vercel.com/docs/functions/runtimes/python) y
-[WebSockets en Vercel](https://vercel.com/changelog/websocket-support-is-now-in-public-beta).
+Referencias: [contenedores en Vercel](https://vercel.com/changelog/bring-your-dockerfile-to-vercel-functions),
+[Vercel Services](https://vercel.com/docs/services) y
+[WebSockets](https://vercel.com/changelog/websocket-support-is-now-in-public-beta).
 
 ## Arquitectura
 
@@ -84,7 +80,7 @@ preprocessing.py       carga, NIfTI y pipeline sin leakage
 models.py              modelos, CV, métricas, IC y tests estadísticos
 visualization.py       EDA, PCA, ROC/PR e interpretación
 report_generator.py    PDF en memoria
-api/                   gateway liviano para Vercel
+Dockerfile.vercel      contenedor Streamlit para Vercel Functions
 tests/                 pruebas funcionales esenciales
 ```
 
@@ -109,4 +105,3 @@ ruff check .
 ```
 
 La semilla global es 42 para que particiones, sobremuestreo y modelos sean reproducibles.
-

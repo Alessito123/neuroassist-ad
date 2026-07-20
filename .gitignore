@@ -13,3 +13,6 @@ artifacts/*
 coverage.xml
 htmlcov/
 
+
+.vercel
+.env*

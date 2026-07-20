@@ -14,7 +14,7 @@ validación estadística, optimización, inferencia individual y reportes PDF.
 - Descarga automática del [Alzheimer's Disease Dataset de Kaggle](https://www.kaggle.com/datasets/rabieelkharoua/alzheimers-disease-dataset),
   con 2,149 registros y 35 variables.
 - Imputación, one-hot encoding, escalado estándar/robusto y SMOTE/ADASYN dentro de cada fold.
-- Random Forest, XGBoost y SVM RBF; Stacking con regresión logística y Voting suave ponderado.
+- Random Forest, XGBoost (distribución CPU) y SVM RBF; Stacking con regresión logística y Voting suave ponderado.
 - StratifiedKFold de 3, 5 o 10 particiones; Accuracy, Precision, Recall, F1, AUC-ROC y AUC-PR.
 - IC 95 % por folds, McNemar pareado sobre predicciones out-of-fold y Friedman global.
 - RandomizedSearchCV y persistencia de parámetros/modelo serializado en PostgreSQL.

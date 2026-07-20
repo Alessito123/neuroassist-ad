@@ -3,7 +3,7 @@ pandas>=2.2,<3.0
 numpy>=1.26,<3.0
 scipy>=1.13,<2.0
 scikit-learn>=1.5,<1.9
-xgboost>=2.1,<4.0
+xgboost-cpu>=3.0,<4.0
 lightgbm>=4.5,<5.0
 imbalanced-learn>=0.12,<0.15
 statsmodels>=0.14,<0.16
@@ -16,4 +16,3 @@ openpyxl>=3.1,<4.0
 nibabel>=5.3,<6.0
 requests>=2.32,<3.0
 joblib>=1.4,<2.0
-

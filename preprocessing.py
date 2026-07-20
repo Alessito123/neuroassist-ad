@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import io
 import logging
 import unicodedata
@@ -65,6 +66,8 @@ def extract_nifti_features(source: str | Path | BinaryIO) -> pd.DataFrame:
     """Extrae biomarcadores volumétricos básicos de un archivo NIfTI."""
     if hasattr(source, "read"):
         raw = source.read()
+        if _name_of(source).endswith(".nii.gz"):
+            raw = gzip.decompress(raw)
         image = nib.Nifti1Image.from_bytes(raw)
     else:
         image = nib.load(str(source))

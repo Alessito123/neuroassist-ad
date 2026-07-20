@@ -1,7 +1,11 @@
+import gzip
+import io
+
+import nibabel as nib
 import numpy as np
 import pandas as pd
 
-from preprocessing import build_preprocessor, dataset_summary, prepare_data
+from preprocessing import build_preprocessor, dataset_summary, prepare_data, read_dataset
 from visualization import (
     interactive_boxplot,
     interactive_correlation_heatmap,
@@ -64,3 +68,13 @@ def test_string_diagnosis_labels_are_encoded_and_preserved():
     assert set(bundle.class_labels.values()) == {"Control", "Alzheimer"}
     assert bundle.class_labels[0] == "Control"
     assert bundle.class_labels[1] == "Alzheimer"
+
+
+def test_compressed_nifti_upload_extracts_biomarkers():
+    image = nib.Nifti1Image(np.ones((3, 3, 3), dtype=np.float32), np.eye(4))
+    uploaded = io.BytesIO(gzip.compress(image.to_bytes()))
+    uploaded.name = "scan.nii.gz"
+    features = read_dataset(uploaded)
+    assert features.shape == (1, 7)
+    assert features.loc[0, "MRI_NonzeroVoxels"] == 27
+    assert features.loc[0, "MRI_NonzeroVolumeMM3"] == 27.0

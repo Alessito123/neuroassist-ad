@@ -18,3 +18,5 @@ htmlcov/
 .env*
 .agents/
 skills-lock.json
+tmp/pdfs/
+output/pdf/*.pdf

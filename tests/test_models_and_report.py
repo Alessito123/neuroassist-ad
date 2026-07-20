@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from pypdf import PdfReader
+from io import BytesIO
 
 from models import evaluate_models
 from preprocessing import prepare_data
@@ -32,4 +34,19 @@ def test_evaluation_and_pdf_generation():
     pdf = generate_report(frame, "Diagnosis", suite, figures)
     assert pdf.startswith(b"%PDF")
     assert len(pdf) > 10_000
+    reader = PdfReader(BytesIO(pdf))
+    assert len(reader.pages) >= 2
+    assert "NeuroAssist AD" in (reader.pages[0].extract_text() or "")
 
+
+def test_pdf_escapes_dynamic_patient_text():
+    frame = pd.DataFrame({"Age": [70, 75], "Diagnosis": [0, 1]})
+    patient = {
+        "patient_code": "PAC-01 <control> & revisión",
+        "predicted_class": "Alzheimer <probable>",
+        "probability": 0.82,
+    }
+    pdf = generate_report(frame, "Diagnosis", patient_result=patient)
+    assert pdf.startswith(b"%PDF")
+    extracted = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
+    assert "PAC-01 <control> & revisión" in extracted

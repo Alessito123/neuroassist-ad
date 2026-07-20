@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import io
 from datetime import datetime
+from html import escape
 from typing import Any, Iterable
 
 import pandas as pd
 from matplotlib.figure import Figure
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
@@ -45,21 +46,58 @@ def _figure_image(
     return image
 
 
+REPORT_BLUE = colors.HexColor("#143B55")
+REPORT_TEAL = colors.HexColor("#12877E")
+REPORT_PALE = colors.HexColor("#EFF7F8")
+
+
+def _safe_text(value: Any) -> str:
+    """Escapa texto dinámico antes de enviarlo al parser XML de ReportLab."""
+    return escape(str(value), quote=True)
+
+
 def _dataframe_table(frame: pd.DataFrame, columns: list[str] | None = None) -> Table:
     display = frame[columns].copy() if columns else frame.copy()
     for column in display.select_dtypes(include="number"):
         display[column] = display[column].map(lambda value: f"{value:.3f}")
-    data = [display.columns.tolist()] + display.astype(str).values.tolist()
-    table = Table(data, repeatRows=1, hAlign="CENTER")
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle(
+        "TableHeader",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=6.8,
+        leading=8,
+        textColor=colors.white,
+        alignment=TA_CENTER,
+    )
+    cell_style = ParagraphStyle(
+        "TableCell",
+        parent=styles["Normal"],
+        fontSize=6.7,
+        leading=8.2,
+        textColor=colors.HexColor("#243746"),
+    )
+    data = [[Paragraph(_safe_text(column), header_style) for column in display.columns]]
+    data.extend(
+        [Paragraph(_safe_text(value), cell_style) for value in row]
+        for row in display.astype(str).values.tolist()
+    )
+    column_count = max(len(display.columns), 1)
+    table = Table(
+        data,
+        repeatRows=1,
+        hAlign="CENTER",
+        colWidths=[25.8 * cm / column_count] * column_count,
+    )
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#173B57")),
+                ("BACKGROUND", (0, 0), (-1, 0), REPORT_BLUE),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 7),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#AAB7C4")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F6F8")]),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, REPORT_PALE]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 4),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 4),
@@ -67,6 +105,26 @@ def _dataframe_table(frame: pd.DataFrame, columns: list[str] | None = None) -> T
         )
     )
     return table
+
+
+def _page_decoration(canvas: Any, document: Any) -> None:
+    """Dibuja identidad, separador y paginación en todas las páginas."""
+    page_width, page_height = landscape(A4)
+    canvas.saveState()
+    canvas.setFillColor(REPORT_BLUE)
+    canvas.setFont("Helvetica-Bold", 8.5)
+    canvas.drawString(1.4 * cm, page_height - 0.72 * cm, "NEUROASSIST AD")
+    canvas.setFillColor(REPORT_TEAL)
+    canvas.circle(page_width - 1.65 * cm, page_height - 0.62 * cm, 0.11 * cm, fill=1, stroke=0)
+    canvas.setStrokeColor(colors.HexColor("#D4E5E9"))
+    canvas.line(1.4 * cm, 0.82 * cm, page_width - 1.4 * cm, 0.82 * cm)
+    canvas.setFillColor(colors.HexColor("#637888"))
+    canvas.setFont("Helvetica", 7.5)
+    canvas.drawString(1.4 * cm, 0.45 * cm, "Uso educativo e investigativo")
+    canvas.setFont("Helvetica", 7.5)
+    page_label = f"Página {document.page}"
+    canvas.drawRightString(page_width - 1.4 * cm, 0.45 * cm, page_label)
+    canvas.restoreState()
 
 
 def generate_report(
@@ -94,13 +152,25 @@ def generate_report(
             name="CenteredTitle",
             parent=styles["Title"],
             alignment=TA_CENTER,
-            textColor=colors.HexColor("#173B57"),
+            textColor=REPORT_BLUE,
+            fontSize=23,
+            leading=28,
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="Metadata",
+            parent=styles["Normal"],
+            alignment=TA_RIGHT,
+            textColor=colors.HexColor("#667B89"),
+            fontSize=8,
         )
     )
     story: list[Any] = [
-        Paragraph("NeuroAssist AD — Reporte analítico", styles["CenteredTitle"]),
+        Spacer(1, 0.25 * cm),
+        Paragraph("NeuroAssist AD - Reporte analítico", styles["CenteredTitle"]),
         Paragraph(
-            f"Generado el {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Normal"]
+            f"Generado el {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles["Metadata"]
         ),
         Spacer(1, 0.35 * cm),
         Paragraph(
@@ -136,11 +206,13 @@ def generate_report(
                 ),
                 Spacer(1, 0.35 * cm),
                 Paragraph(
-                    f"Modelo seleccionado: <b>{suite.best_model_name}</b>. Criterio: promedio de AUC-ROC y F1.",
+                    f"Modelo seleccionado: <b>{_safe_text(suite.best_model_name)}</b>. "
+                    "Criterio: promedio de AUC-ROC y F1.",
                     styles["Normal"],
                 ),
                 Paragraph(
-                    "Friedman: " + suite.friedman_test["interpretacion"], styles["Normal"]
+                    "Friedman: " + _safe_text(suite.friedman_test["interpretacion"]),
+                    styles["Normal"],
                 ),
             ]
         )
@@ -158,10 +230,12 @@ def generate_report(
                 PageBreak(),
                 Paragraph("Resultado individual", styles["Heading2"]),
                 Paragraph(
-                    f"Paciente/código: {patient_result.get('patient_code', 'N/D')}", styles["Normal"]
+                    f"Paciente/código: {_safe_text(patient_result.get('patient_code', 'N/D'))}",
+                    styles["Normal"],
                 ),
                 Paragraph(
-                    f"Clase estimada: <b>{patient_result.get('predicted_class')}</b>", styles["Normal"]
+                    f"Clase estimada: <b>{_safe_text(patient_result.get('predicted_class', 'N/D'))}</b>",
+                    styles["Normal"],
                 ),
                 Paragraph(
                     f"Confianza del modelo: {patient_result.get('probability', 0):.1%}", styles["Normal"]
@@ -174,5 +248,5 @@ def generate_report(
             ]
         )
 
-    document.build(story)
+    document.build(story, onFirstPage=_page_decoration, onLaterPages=_page_decoration)
     return output.getvalue()

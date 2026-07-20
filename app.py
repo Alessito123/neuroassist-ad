@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -54,8 +55,132 @@ st.set_page_config(
     page_title="NeuroAssist AD",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
+
+
+APP_STYLES = """
+<style>
+    :root {
+        --na-ink: #12263a;
+        --na-muted: #5c7083;
+        --na-blue: #136f8a;
+        --na-teal: #0f8b80;
+        --na-border: #dce8ee;
+        --na-surface: rgba(255, 255, 255, 0.92);
+    }
+
+    [data-testid="stAppViewContainer"] {
+        background:
+            radial-gradient(circle at 88% 5%, rgba(69, 187, 184, 0.12), transparent 28rem),
+            linear-gradient(180deg, #f7fbfc 0%, #f3f7fa 100%);
+        color: var(--na-ink);
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    .block-container { max-width: 1380px; padding-top: 2.2rem; padding-bottom: 4rem; }
+    h1, h2, h3 { color: var(--na-ink); letter-spacing: -0.025em; }
+    h2 { margin-top: 0.25rem; }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(175deg, #0d2638 0%, #123f58 62%, #0f6c68 125%);
+        border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    [data-testid="stSidebar"] * { color: #eaf5f7; }
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: #a9c8d2;
+        font-size: 0.73rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+    }
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        border-radius: 0.75rem;
+        padding: 0.22rem 0.45rem;
+        transition: background 140ms ease;
+    }
+    [data-testid="stSidebar"] [role="radiogroup"] label:hover {
+        background: rgba(255,255,255,0.08);
+    }
+    [data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.14); }
+
+    .na-brand { display: flex; align-items: center; gap: 0.8rem; padding: 0.4rem 0 1rem; }
+    .na-brand-mark {
+        display: grid; place-items: center; width: 2.65rem; height: 2.65rem;
+        border-radius: 0.9rem; background: linear-gradient(145deg, #2bc2b5, #1d82a5);
+        box-shadow: 0 10px 26px rgba(0,0,0,0.2); font-size: 1.35rem;
+    }
+    .na-brand-title { font-size: 1.18rem; font-weight: 780; line-height: 1.1; color: white; }
+    .na-brand-subtitle { font-size: 0.72rem; color: #a9c8d2; margin-top: 0.25rem; }
+    .na-side-card {
+        border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.07);
+        border-radius: 0.9rem; padding: 0.85rem 0.95rem; margin-top: 0.75rem;
+        font-size: 0.82rem; line-height: 1.45;
+    }
+    .na-side-card strong { color: white; display: block; margin-bottom: 0.18rem; }
+    .na-side-card.success { border-color: rgba(76, 220, 184, 0.28); background: rgba(25, 166, 137, 0.14); }
+
+    .na-hero {
+        position: relative; overflow: hidden; padding: 2.2rem 2.35rem;
+        border: 1px solid rgba(28, 128, 151, 0.18); border-radius: 1.35rem;
+        background: linear-gradient(120deg, rgba(255,255,255,0.98), rgba(226,246,246,0.92));
+        box-shadow: 0 20px 60px rgba(24, 65, 83, 0.09); margin-bottom: 1.35rem;
+    }
+    .na-hero::after {
+        content: ""; position: absolute; width: 17rem; height: 17rem; right: -5rem; top: -8rem;
+        border-radius: 50%; background: radial-gradient(circle, rgba(23,151,151,0.22), transparent 68%);
+    }
+    .na-eyebrow {
+        display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.7rem;
+        border-radius: 999px; background: #e3f5f3; color: #08736b; font-size: 0.72rem;
+        font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .na-hero h1 { margin: 0.85rem 0 0.55rem; font-size: clamp(2rem, 4vw, 3.15rem); line-height: 1.04; }
+    .na-hero p { max-width: 52rem; margin: 0; color: var(--na-muted); font-size: 1.02rem; line-height: 1.65; }
+    .na-flow-card {
+        min-height: 8.2rem; border: 1px solid var(--na-border); border-radius: 1rem;
+        background: var(--na-surface); padding: 1rem 1.05rem; box-shadow: 0 8px 28px rgba(30,72,88,0.055);
+    }
+    .na-flow-number { color: var(--na-teal); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; }
+    .na-flow-card strong { display: block; margin: 0.35rem 0; color: var(--na-ink); }
+    .na-flow-card span { color: var(--na-muted); font-size: 0.82rem; line-height: 1.45; }
+
+    [data-testid="stMetric"] {
+        background: var(--na-surface); border: 1px solid var(--na-border); border-radius: 1rem;
+        padding: 0.95rem 1rem; box-shadow: 0 8px 26px rgba(28,70,88,0.05);
+    }
+    [data-testid="stMetricLabel"] p { color: var(--na-muted); font-weight: 650; }
+    [data-testid="stMetricValue"] { color: var(--na-ink); }
+    [data-testid="stDataFrame"], [data-testid="stPlotlyChart"] {
+        border: 1px solid var(--na-border); border-radius: 1rem; overflow: hidden;
+        box-shadow: 0 8px 28px rgba(28,70,88,0.045);
+    }
+    [data-testid="stButton"] button, [data-testid="stDownloadButton"] button {
+        min-height: 2.75rem; border-radius: 0.78rem; font-weight: 700;
+    }
+    [data-testid="stDownloadButton"] button[kind="primary"],
+    [data-testid="stButton"] button[kind="primary"] {
+        border: 0; background: linear-gradient(110deg, var(--na-blue), var(--na-teal));
+        box-shadow: 0 8px 22px rgba(15, 126, 133, 0.2);
+    }
+    [data-testid="stAlert"] { border-radius: 0.9rem; }
+    div[data-testid="stExpander"] { border-color: var(--na-border); border-radius: 0.9rem; }
+    .na-report-ready {
+        border: 1px solid #b9e5d9; background: #effaf6; border-radius: 1rem;
+        padding: 1rem 1.1rem; color: #145d50; margin: 0.7rem 0 1rem;
+    }
+
+    @media (max-width: 760px) {
+        .block-container { padding-top: 1.25rem; }
+        .na-hero { padding: 1.4rem; border-radius: 1rem; }
+        .na-hero h1 { font-size: 2rem; }
+    }
+</style>
+"""
+
+
+def apply_app_styles() -> None:
+    """Aplica una capa visual estable sin depender de clases CSS generadas."""
+    st.markdown(APP_STYLES, unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner=False, ttl=24 * 60 * 60)
@@ -76,6 +201,9 @@ def initialize_state() -> None:
         "patient_result": None,
         "database_url": SETTINGS.database_url,
         "auto_load_attempted": False,
+        "selected_module": "Inicio",
+        "generated_pdf": None,
+        "generated_pdf_at": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -90,6 +218,8 @@ def assign_dataset(frame: pd.DataFrame, name: str, source: str) -> None:
     st.session_state.bundle = None
     st.session_state.model_db_id = None
     st.session_state.patient_result = None
+    st.session_state.generated_pdf = None
+    st.session_state.generated_pdf_at = None
     try:
         st.session_state.target = infer_target(frame)
     except ValueError:
@@ -110,8 +240,16 @@ def current_bundle(frame: pd.DataFrame | None = None) -> DataBundle:
 
 
 def sidebar() -> str:
-    st.sidebar.markdown("# 🧠 NeuroAssist AD")
-    st.sidebar.caption("Analítica y ML para apoyo educativo en Alzheimer")
+    st.sidebar.markdown(
+        """
+        <div class="na-brand">
+          <div class="na-brand-mark">🧠</div>
+          <div><div class="na-brand-title">NeuroAssist AD</div>
+          <div class="na-brand-subtitle">Analítica clínica responsable</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     sections = [
         "Inicio",
         "1. Gestión de datos",
@@ -124,38 +262,57 @@ def sidebar() -> str:
         "8. Reportes PDF",
         "Arquitectura y metodología",
     ]
-    selected = st.sidebar.radio("Módulo", sections)
+    selected = st.sidebar.radio("Módulo", sections, key="selected_module")
     st.sidebar.divider()
-    st.sidebar.warning(
-        "Uso educativo e investigativo. No constituye ni reemplaza un diagnóstico médico."
+    st.sidebar.markdown(
+        """<div class="na-side-card"><strong>Uso responsable</strong>
+        Herramienta educativa e investigativa. No constituye ni reemplaza un diagnóstico médico.</div>""",
+        unsafe_allow_html=True,
     )
     if st.session_state.dataset is not None:
         frame = st.session_state.dataset
-        st.sidebar.success(f"Dataset activo: {len(frame):,} × {len(frame.columns)}")
+        st.sidebar.markdown(
+            f"""<div class="na-side-card success"><strong>Dataset listo</strong>
+            {len(frame):,} registros · {len(frame.columns)} variables</div>""",
+            unsafe_allow_html=True,
+        )
     return selected
 
 
 def page_home() -> None:
-    st.title("NeuroAssist AD")
-    st.subheader("Diagnóstico asistido de Alzheimer con aprendizaje automático reproducible")
     st.markdown(
         """
-        Esta plataforma reúne gestión de datos, exploración, entrenamiento, validación
-        estadística, selección de modelos, inferencia individual y reportes clínico-analíticos.
-
-        El flujo por defecto usa el **Alzheimer's Disease Dataset** de Kaggle (2,149 casos,
-        datos sintéticos para educación). También acepta datos tabulares desidentificados y
-        extracción básica de biomarcadores desde NIfTI. Ningún resultado debe utilizarse para
-        tomar decisiones clínicas sin validación externa, supervisión profesional y revisión de sesgos.
-        """
+        <section class="na-hero">
+          <span class="na-eyebrow">● Plataforma de apoyo analítico</span>
+          <h1>Decisiones de ML más claras para investigación en Alzheimer</h1>
+          <p>Explore datos, compare cinco modelos bajo la misma validación, estime casos
+          individuales y genere reportes trazables desde un único flujo reproducible.</p>
+        </section>
+        """,
+        unsafe_allow_html=True,
     )
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Modelos base", "3", "RF · XGBoost · SVM")
     col2.metric("Ensambles", "2", "Stacking · Voting")
     col3.metric("Validación", "5–10 folds", "Estratificada")
     col4.metric("Persistencia", "PostgreSQL", "SQLAlchemy")
-    st.info(
-        "Comience en **Gestión de datos** para revisar la carga automática y configurar PostgreSQL/Neon."
+    st.subheader("Flujo recomendado")
+    flow = st.columns(4)
+    steps = [
+        ("01", "Prepare", "Revise calidad, variable objetivo y persistencia."),
+        ("02", "Explore", "Comprenda distribuciones, grupos y correlaciones."),
+        ("03", "Compare", "Valide modelos y ensambles sin fuga de información."),
+        ("04", "Comunique", "Genere inferencias y reportes PDF auditables."),
+    ]
+    for column, (number, title, copy) in zip(flow, steps):
+        column.markdown(
+            f"""<div class="na-flow-card"><div class="na-flow-number">PASO {number}</div>
+            <strong>{title}</strong><span>{copy}</span></div>""",
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        "Dataset demostrativo: Alzheimer's Disease Dataset de Kaggle (2,149 casos sintéticos). "
+        "También se admiten datos tabulares desidentificados y biomarcadores NIfTI básicos."
     )
 
 
@@ -242,6 +399,8 @@ def page_data_management() -> None:
             frame.to_csv(index=False).encode("utf-8"),
             "dataset_neuroassist.csv",
             "text/csv",
+            key="download_active_csv",
+            on_click="ignore",
         )
     with action2:
         if st.button("Persistir datos crudos"):
@@ -583,46 +742,87 @@ def page_reports() -> None:
     suite: EvaluationSuite | None = st.session_state.suite
     bundle: DataBundle | None = st.session_state.bundle
     st.write(
-        "El reporte incluye resumen del dataset, métricas e IC 95 %, selección, matriz de "
-        "confusión, curvas ROC/PR, importancia de características y el último resultado individual."
+        "Construya un documento listo para compartir con resumen de datos, métricas, intervalos "
+        "de confianza, visualizaciones y el último resultado individual disponible."
     )
-    if st.button("Generar reporte"):
-        figures = [target_distribution_figure(frame, st.session_state.target)]
-        if suite is not None and bundle is not None:
-            figures.extend(
-                [
-                    model_comparison_figure(suite),
-                    confusion_matrix_figure(suite),
-                    roc_pr_figure(bundle, suite),
-                ]
-            )
-            try:
-                figures.append(
-                    feature_importance_figure(
-                        bundle, suite.models[suite.best_model_name].fitted_model
-                    )
-                )
-            except Exception:
-                LOGGER.exception("No se incluyó importancia en el PDF")
+    status_columns = st.columns(3)
+    status_columns[0].metric("Dataset", f"{len(frame):,} casos", "Incluido")
+    status_columns[1].metric(
+        "Evaluación ML", "Disponible" if suite is not None else "Pendiente", "Opcional"
+    )
+    status_columns[2].metric(
+        "Resultado individual",
+        "Disponible" if st.session_state.patient_result else "Pendiente",
+        "Opcional",
+    )
+
+    if st.button(
+        "Generar reporte PDF",
+        key="generate_report_pdf",
+        type="primary",
+        icon=":material/picture_as_pdf:",
+        use_container_width=True,
+    ):
+        figures: list[Any] = []
         try:
-            pdf = generate_report(
-                frame,
-                st.session_state.target,
-                suite,
-                figures,
-                st.session_state.patient_result,
+            with st.spinner("Componiendo tablas, métricas y visualizaciones…"):
+                figures.append(target_distribution_figure(frame, st.session_state.target))
+                if suite is not None and bundle is not None:
+                    chart_builders = [
+                        lambda: model_comparison_figure(suite),
+                        lambda: confusion_matrix_figure(suite),
+                        lambda: roc_pr_figure(bundle, suite),
+                        lambda: feature_importance_figure(
+                            bundle, suite.models[suite.best_model_name].fitted_model
+                        ),
+                    ]
+                    for build_chart in chart_builders:
+                        try:
+                            figures.append(build_chart())
+                        except Exception:
+                            LOGGER.exception("Se omitió una visualización no disponible en el PDF")
+                pdf = generate_report(
+                    frame,
+                    st.session_state.target,
+                    suite,
+                    figures,
+                    st.session_state.patient_result,
+                )
+                if not pdf.startswith(b"%PDF"):
+                    raise ValueError("El archivo generado no tiene un encabezado PDF válido.")
+                st.session_state.generated_pdf = bytes(pdf)
+                st.session_state.generated_pdf_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+        except Exception as exc:
+            st.session_state.generated_pdf = None
+            st.session_state.generated_pdf_at = None
+            LOGGER.exception("No fue posible generar el reporte PDF")
+            st.error(
+                "No fue posible construir el reporte. Intente nuevamente; si el problema persiste, "
+                f"revise los datos activos. Detalle: {exc}"
             )
-            st.session_state.generated_pdf = pdf
         finally:
             for figure in figures:
                 plt.close(figure)
-    if st.session_state.get("generated_pdf"):
+
+    pdf_data = st.session_state.get("generated_pdf")
+    if pdf_data:
+        size_kb = len(pdf_data) / 1024
+        generated_at = st.session_state.get("generated_pdf_at") or "esta sesión"
+        st.markdown(
+            f"""<div class="na-report-ready"><strong>✓ Reporte preparado</strong><br>
+            {size_kb:,.0f} KB · generado {generated_at}. La descarga no reiniciará su sesión.</div>""",
+            unsafe_allow_html=True,
+        )
         st.download_button(
             "Descargar reporte NeuroAssist AD",
-            st.session_state.generated_pdf,
-            "reporte_neuroassist_ad.pdf",
-            "application/pdf",
+            data=pdf_data,
+            file_name=f"reporte_neuroassist_ad_{datetime.now():%Y%m%d}.pdf",
+            mime="application/pdf",
+            key="download_report_pdf",
+            on_click="ignore",
             type="primary",
+            icon=":material/download:",
+            use_container_width=True,
         )
 
 
@@ -665,6 +865,7 @@ def auto_load_public_data() -> None:
 
 def main() -> None:
     initialize_state()
+    apply_app_styles()
     auto_load_public_data()
     selected = sidebar()
     pages = {

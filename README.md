@@ -47,6 +47,12 @@ docker compose up --build
 3. Pulse **Verificar conexión y crear tablas**. SQLAlchemy crea `datasets_raw`,
    `datasets_processed`, `modelos_entrenados` y `resultados_diagnostico`.
 
+Para inicializar idempotentemente el dataset público desde consola:
+
+```powershell
+python -m scripts.seed_database
+```
+
 Las credenciales no se imprimen ni se guardan en Git. Use `.env.example` como referencia.
 
 ## Despliegue en Vercel
